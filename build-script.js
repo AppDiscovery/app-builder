@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 
-const path = require('path');
-const fs = require('fs');
-const tar = require('tar');
-const rimraf = require('rimraf');
-const execSync = require('child_process').execSync;
+const path = require("path");
+const fs = require("fs");
+const tar = require("tar");
+const rimraf = require("rimraf");
+const execSync = require("child_process").execSync;
 const webpack = require("webpack");
-const packageJson = require('./package.json');
-const SRC_DIR = path.join(__dirname, '/src');
-const fileName = packageJson.name + '-' + packageJson.version + '-build';
-const BUILD_DIR = path.join(__dirname, '/' + fileName);
-const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
+const packageJson = require("./package.json");
+const infoJson = require("./info.json");
+const SRC_DIR = path.join(__dirname, "/src");
+const fileName = packageJson.name + "-" + packageJson.version + "-build";
+const BUILD_DIR = path.join(__dirname, "/" + fileName);
+const UglifyJsPlugin = require("uglifyjs-webpack-plugin");
 
 // 创建空的build目录
 if (fs.existsSync(BUILD_DIR)) {
@@ -22,7 +23,9 @@ fs.mkdirSync(BUILD_DIR);
 execSync("npm shrinkwrap", { stdio: [0, 1, 2] });
 
 // 读取shrinkwrap信息
-let shrinkWrapJson = JSON.parse(fs.readFileSync('./npm-shrinkwrap.json', { encoding: "UTF8" }));
+let shrinkWrapJson = JSON.parse(
+  fs.readFileSync("./npm-shrinkwrap.json", { encoding: "UTF8" })
+);
 
 function buildApp() {
   return new Promise((resolve, reject) => {
@@ -35,7 +38,7 @@ function buildApp() {
       let ver = shrinkWrapJson.dependencies[_].version;
       let depName = _ + "_" + ver;
       externals[_] = {
-        window: ["$deps", depName],
+        window: ["$deps", depName]
       };
     });
 
@@ -45,11 +48,11 @@ function buildApp() {
       externals,
       output: {
         path: BUILD_DIR,
-        filename: '[name].js',
-        libraryTarget: "window",
+        filename: "[name].js",
+        libraryTarget: "window"
       },
       resolve: {
-        extensions: ['.js', '.jsx'],
+        extensions: [".js", ".jsx"]
       },
       module: {
         rules: [
@@ -57,35 +60,34 @@ function buildApp() {
             test: /\.jsx?$/,
             exclude: /node_modules/,
             use: {
-              loader: "babel-loader",
-            },
+              loader: "babel-loader"
+            }
           },
           {
             test: /\.css$/,
-            use: [
-              { loader: "style-loader" },
-              { loader: "css-loader" },
-            ],
+            use: [{ loader: "style-loader" }, { loader: "css-loader" }]
           },
           {
             test: /\.svg$/,
-            loader: 'react-svg-loader',
+            loader: "react-svg-loader"
           },
           {
             test: /\.less$/,
-            use: [{
-              loader: 'style-loader',
-            }, {
-              loader: 'css-loader',
-            }, {
-              loader: 'less-loader',
-            }],
-          },
-        ],
+            use: [
+              {
+                loader: "style-loader"
+              },
+              {
+                loader: "css-loader"
+              },
+              {
+                loader: "less-loader"
+              }
+            ]
+          }
+        ]
       },
-      plugins: [
-        new UglifyJsPlugin()
-      ],
+      plugins: [new UglifyJsPlugin()]
     };
 
     webpack(appBuildConf, (err, stats) => {
@@ -121,23 +123,29 @@ function buildDeps() {
       externals: externals,
       output: {
         path: BUILD_DIR,
-        filename: 'deps/[name].js',
-        library: ['$deps', '[name]'],
+        filename: "deps/[name].js",
+        library: ["$deps", "[name]"]
       },
       plugins: [
         new webpack.optimize.UglifyJsPlugin({
-          compress: { warnings: false },
-        })],
+          compress: { warnings: false }
+        })
+      ]
     };
 
     const meta = {
       name: packageJson.name,
       version: packageJson.version,
       description: packageJson.description,
-      deps,
+      ...infoJson,
+      deps
     };
 
-    fs.writeFileSync(path.join(BUILD_DIR, "meta.json"), JSON.stringify(meta, null, 4), { encoding: "UTF8" });
+    fs.writeFileSync(
+      path.join(BUILD_DIR, "meta.json"),
+      JSON.stringify(meta, null, 4),
+      { encoding: "UTF8" }
+    );
 
     webpack(depsBuildConf, (err, stats) => {
       if (err || stats.hasErrors()) {
@@ -150,15 +158,20 @@ function buildDeps() {
 
 buildApp().then(() => {
   buildDeps().then(() => {
-    tar.c({
-      gzip: true,
-      portable: true,
-      file: fileName + '.tar.gz',
-      cwd: BUILD_DIR
-    }, fs.readdirSync(BUILD_DIR)).then(() => {
-      rimraf(BUILD_DIR, () => {
-        console.log("Build complete");
+    tar
+      .c(
+        {
+          gzip: true,
+          portable: true,
+          file: fileName + ".tar.gz",
+          cwd: BUILD_DIR
+        },
+        fs.readdirSync(BUILD_DIR)
+      )
+      .then(() => {
+        rimraf(BUILD_DIR, () => {
+          console.log("Build complete");
+        });
       });
-    });
   });
 });
